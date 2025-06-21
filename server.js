@@ -7,11 +7,10 @@ const Note     = require('./models/Note');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// 1) Connect to MongoDB using Railway’s env var (or local fallback)
+// 1) Connect to MongoDB
 const mongoUri =
-  process.env.MONGODB_URI ||             // set in Railway Variables
-  'mongodb://localhost:27017/notesdb';   // local-dev fallback
-
+  process.env.MONGODB_URI ||
+  'mongodb://localhost:27017/notesdb';
 console.log('⚙️ Connecting to MongoDB at:', mongoUri);
 mongoose
   .connect(mongoUri)
@@ -21,19 +20,29 @@ mongoose
     process.exit(1);
   });
 
-// 2) Middleware
+// 2) CORS middleware — allow both local dev and your Vercel URL
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://notes-ui.vercel.app'
+];
+
 app.use(express.json());
 app.use(
   cors({
-    origin: 'http://localhost:3000',      // adjust if frontend runs elsewhere
+    origin: function(origin, callback) {
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      callback(new Error('CORS policy: This origin is not allowed.'));
+    },
     methods: ['GET','POST','PUT','DELETE'],
     allowedHeaders: ['Content-Type']
   })
 );
 
 // 3) Routes
-
-// GET all notes
 app.get('/notes', async (req, res, next) => {
   try {
     const notes = await Note.find().sort('-createdAt');
@@ -43,7 +52,6 @@ app.get('/notes', async (req, res, next) => {
   }
 });
 
-// POST a new note
 app.post('/notes', async (req, res) => {
   try {
     const { title, content } = req.body;
@@ -54,14 +62,11 @@ app.post('/notes', async (req, res) => {
   }
 });
 
-// PUT (update) a note
 app.put('/notes/:id', async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { title, content } = req.body;
     const updated = await Note.findByIdAndUpdate(
-      id,
-      { title, content },
+      req.params.id,
+      req.body,
       { new: true, runValidators: true }
     );
     if (!updated) return res.status(404).json({ error: 'Not found' });
@@ -71,11 +76,9 @@ app.put('/notes/:id', async (req, res, next) => {
   }
 });
 
-// DELETE a note
 app.delete('/notes/:id', async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const deleted = await Note.findByIdAndDelete(id);
+    const deleted = await Note.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Not found' });
     res.sendStatus(204);
   } catch (err) {
@@ -86,6 +89,10 @@ app.delete('/notes/:id', async (req, res, next) => {
 // 4) Global error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
+  // Send CORS errors as 403 rather than 500
+  if (err.message && err.message.startsWith('CORS policy')) {
+    return res.status(403).json({ error: err.message });
+  }
   res.status(500).json({ error: 'Internal server error' });
 });
 
