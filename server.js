@@ -1,15 +1,14 @@
 // server.js
-const express  = require('express');
-const mongoose = require('mongoose');
-const cors     = require('cors');
-const Note     = require('./models/Note');
-
+const express  = require('express');\const mongoose = require('mongoose');\const cors     = require('cors');\const Note     = require('./models/Note');
 const app  = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
-// Connect to MongoDB
-mongoose
-  .connect('mongodb://localhost:27017/notesdb')
+// Build the MongoDB URI from env
+const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://localhost:27017/notesdb';
+console.log('⚙️ Connecting to MongoDB at:', mongoUri);
+
+// Connect to MongoDB\mongoose
+  .connect(mongoUri)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB error:', err));
 
@@ -17,8 +16,8 @@ mongoose
 app.use(express.json());
 app.use(
   cors({
-    origin: 'http://localhost:3000',      // React runs on 3001
-    methods: ['GET','POST','PUT','DELETE'],
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type']
   })
 );
@@ -28,7 +27,7 @@ app.use(
 // GET /notes
 app.get('/notes', async (req, res, next) => {
   try {
-    const notes = await Note.find().sort('-createdAt').lean();
+    const notes = await Note.find().sort('-createdAt');
     res.json(notes);
   } catch (err) {
     next(err);
@@ -46,10 +45,28 @@ app.post('/notes', async (req, res) => {
   }
 });
 
+// PUT /notes/:id - update note
+app.put('/notes/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { title, content } = req.body;
+    const updated = await Note.findByIdAndUpdate(
+      id,
+      { title, content },
+      { new: true, runValidators: true }
+    );
+    if (!updated) return res.status(404).json({ error: 'Not found' });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // DELETE /notes/:id
 app.delete('/notes/:id', async (req, res, next) => {
   try {
-    const deleted = await Note.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
+    const deleted = await Note.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ error: 'Not found' });
     res.sendStatus(204);
   } catch (err) {
@@ -63,7 +80,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start server
+// Start
 app.listen(PORT, () => {
   console.log(`🚀 Notes API listening on port ${PORT}`);
 });
