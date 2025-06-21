@@ -1,5 +1,4 @@
 // server.js
-require('dotenv').config();              // if you have a local .env in dev
 const express  = require('express');
 const mongoose = require('mongoose');
 const cors     = require('cors');
@@ -8,13 +7,12 @@ const Note     = require('./models/Note');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// 1) Build the Mongo URI from env or fallback
+// 1) Connect to MongoDB using Railway’s env var (or local fallback)
 const mongoUri =
-  process.env.MONGODB_URI ||            // Railway’s or Atlas URI
-  process.env.MONGO_URL   ||            // alternative name, if set
-  'mongodb://localhost:27017/notesdb';  // local dev fallback
+  process.env.MONGODB_URI ||             // set in Railway Variables
+  'mongodb://localhost:27017/notesdb';   // local-dev fallback
 
-console.log('⚙️  Connecting to MongoDB at:', mongoUri);
+console.log('⚙️ Connecting to MongoDB at:', mongoUri);
 mongoose
   .connect(mongoUri)
   .then(() => console.log('✅ Connected to MongoDB'))
@@ -27,7 +25,7 @@ mongoose
 app.use(express.json());
 app.use(
   cors({
-    origin: 'http://localhost:3000',      // your React dev server
+    origin: 'http://localhost:3000',      // adjust if frontend runs elsewhere
     methods: ['GET','POST','PUT','DELETE'],
     allowedHeaders: ['Content-Type']
   })
@@ -35,7 +33,7 @@ app.use(
 
 // 3) Routes
 
-// GET /notes
+// GET all notes
 app.get('/notes', async (req, res, next) => {
   try {
     const notes = await Note.find().sort('-createdAt');
@@ -45,7 +43,7 @@ app.get('/notes', async (req, res, next) => {
   }
 });
 
-// POST /notes
+// POST a new note
 app.post('/notes', async (req, res) => {
   try {
     const { title, content } = req.body;
@@ -56,7 +54,7 @@ app.post('/notes', async (req, res) => {
   }
 });
 
-// PUT /notes/:id
+// PUT (update) a note
 app.put('/notes/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -73,7 +71,7 @@ app.put('/notes/:id', async (req, res, next) => {
   }
 });
 
-// DELETE /notes/:id
+// DELETE a note
 app.delete('/notes/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -91,7 +89,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// 5) Start the server
+// 5) Start server
 app.listen(PORT, () => {
   console.log(`🚀 Notes API listening on port ${PORT}`);
 });
