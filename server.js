@@ -1,28 +1,39 @@
 // server.js
-const express  = require('express');\const mongoose = require('mongoose');\const cors     = require('cors');\const Note     = require('./models/Note');
+require('dotenv').config();              // if you have a local .env in dev
+const express  = require('express');
+const mongoose = require('mongoose');
+const cors     = require('cors');
+const Note     = require('./models/Note');
+
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// Build the MongoDB URI from env
-const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://localhost:27017/notesdb';
-console.log('⚙️ Connecting to MongoDB at:', mongoUri);
+// 1) Build the Mongo URI from env or fallback
+const mongoUri =
+  process.env.MONGODB_URI ||            // Railway’s or Atlas URI
+  process.env.MONGO_URL   ||            // alternative name, if set
+  'mongodb://localhost:27017/notesdb';  // local dev fallback
 
-// Connect to MongoDB\mongoose
+console.log('⚙️  Connecting to MongoDB at:', mongoUri);
+mongoose
   .connect(mongoUri)
   .then(() => console.log('✅ Connected to MongoDB'))
-  .catch(err => console.error('❌ MongoDB error:', err));
+  .catch(err => {
+    console.error('❌ MongoDB error:', err);
+    process.exit(1);
+  });
 
-// Middleware
+// 2) Middleware
 app.use(express.json());
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: 'http://localhost:3000',      // your React dev server
+    methods: ['GET','POST','PUT','DELETE'],
     allowedHeaders: ['Content-Type']
   })
 );
 
-// Routes
+// 3) Routes
 
 // GET /notes
 app.get('/notes', async (req, res, next) => {
@@ -45,7 +56,7 @@ app.post('/notes', async (req, res) => {
   }
 });
 
-// PUT /notes/:id - update note
+// PUT /notes/:id
 app.put('/notes/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -74,13 +85,13 @@ app.delete('/notes/:id', async (req, res, next) => {
   }
 });
 
-// Error handler
+// 4) Global error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start
+// 5) Start the server
 app.listen(PORT, () => {
   console.log(`🚀 Notes API listening on port ${PORT}`);
 });
